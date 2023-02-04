@@ -63,20 +63,29 @@ server := grpc.NewServer(
 ```go
 resp, err := mayOccurGRPCError()
 if err != nil {
-    return nil, err // デフォルトのエラー翻訳ポリシーを適用したい場合は、何もせず return する
+    // デフォルトのエラー翻訳ポリシーを適用したい場合は、何もせず return する
+    return nil, err 
 }
 
 resp, err := mayOccurGRPCError()
 if err != nil {
-    return nil, fmt.Errorf("xxx.yyy  failed: %w", err) // Wrapしても、デフォルトのエラー翻訳ポリシーが採用される
+    // Wrapしても、デフォルトのエラー翻訳ポリシーが採用される
+    return nil, fmt.Errorf("xxx.yyy  failed: %w", err)
 }
 
 resp, err := mayOccurGRPCError()
 if err != nil {
     if status.Code(err) == codes.NotFound {
-        return nil, grpcerror.Translate(err, grpcerror.NotFound("not found")) // NotFound に明示的にエラー翻訳することで、デフォルトのエラー翻訳ポリシの適用を回避する
+        // NotFound に明示的にエラー翻訳することで、デフォルトのエラー翻訳ポリシの適用を回避する
+        return nil, grpcerror.Translate(err, grpcerror.NotFound("not found")) 
     }
     return nil, err
+}
+
+resp, err := checkPermission()
+if err != nil {
+    // PermissionDenied エラーを自ら生成し、デフォルトのエラー翻訳ポリシの適用を回避する。
+    return nil, grpcerror.AsIs(grpcerror.PermissionDenied("permission denied")) 
 }
 ```
 

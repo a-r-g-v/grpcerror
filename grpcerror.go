@@ -59,3 +59,10 @@ func Translate(err error, st *status.Status) *TranslatedError {
 		Original:   err,
 	}
 }
+
+func AsIs(st *status.Status) *TranslatedError {
+	return &TranslatedError{
+		Translated: st,
+		Original:   st.Err(),
+	}
+}
