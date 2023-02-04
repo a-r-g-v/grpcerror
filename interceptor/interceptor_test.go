@@ -34,6 +34,14 @@ func Test_MapTranslator(t *testing.T) {
 
 			want: codes.Internal,
 		},
+		"wrapped grpc errors that exists in translateMap must be auto translated": {
+			in: fmt.Errorf("xxx.yyy failed: %w", grpcerror.InvalidArgumentError("invalid argument")),
+			translateMap: map[codes.Code]codes.Code{
+				codes.InvalidArgument: codes.Internal,
+			},
+
+			want: codes.Internal,
+		},
 		"grpc errors that doesn't exist in translateMap must be Unknown": {
 			in: grpcerror.InvalidArgumentError("invalid argument"),
 
@@ -41,6 +49,10 @@ func Test_MapTranslator(t *testing.T) {
 		},
 		"translated error must be keeps translated error": {
 			in:   grpcerror.Translate(grpcerror.InvalidArgumentError("invalid_argument"), grpcerror.NotFound("not found")),
+			want: codes.NotFound,
+		},
+		"wrapped translated error must be keeps translated error": {
+			in:   fmt.Errorf("%w", grpcerror.Translate(grpcerror.InvalidArgumentError("invalid_argument"), grpcerror.NotFound("not found"))),
 			want: codes.NotFound,
 		},
 	} {
