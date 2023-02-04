@@ -10,7 +10,7 @@ gRPCアプリケーション向けに、別のgRPCサービスが生成したエ
 
 ## 問題意識
 
-あるgRPC APIハンドラが、別のgRPCサービスを呼び出した結果エラーを得たとき、API実行の継続可否を参考にした上で、エラーハンドリングを行う必要があります。
+あるgRPC APIハンドラが、別のgRPCサービスを呼び出した結果エラーを得たとき、API実行の継続可否を踏まえ、エラーハンドリングを行う必要があります。
 * API実行を継続できるエラーであれば、エラーを対処して実行を継続する。
 * API実行を継続できないエラーであれば、エラーを適切なエラーに翻訳した後に、クライアントに返却する。
 
@@ -27,8 +27,8 @@ gRPCアプリケーション向けに、別のgRPCサービスが生成したエ
 
 | 依存gRPCサービスが生成したエラーコード | APIが返却するべきエラーコード    | 理由
 |:----------------------|:--------------------| :--- | 
-| Canceled              | Canceled            | クライアントがキャンセルした場合はAPIはキャンセルコードを返すべき（クライアントに責任がある）
-| DeadlineExceeded      | DeadlineExceeded    | クライアントが設定したタイマーにタイムアウトした場合はタイムアウトコードを返すべき（クライアントに責任がある）サーバーが設定したタイマーである場合はこの限りではない
+| Canceled              | Canceled            | クライアントがキャンセルした場合はAPIはキャンセルコードを返すべき（クライアントに責任があるため）
+| DeadlineExceeded      | DeadlineExceeded    | クライアントが設定したタイマーにタイムアウトした場合はタイムアウトコードを返すべき（クライアントに責任があるため）一方、サーバーが設定したタイマー起因である場合はこの限りではない
 | Unknown               | Unknown or Internal | 依存gRPCサービス実装に起因するエラーであり、サーバーがそのサービスに依存している以上、サーバーの責任である
 | InvalidArgument       | Internal | サーバーが依存gRPCのリクエスト契約に違反しているため、サーバーの責任である
 | それ以外                  | Internal | 基本的には同上。
@@ -44,11 +44,11 @@ gRPCアプリケーション向けに、別のgRPCサービスが生成したエ
 デフォルトのエラー翻訳は、gRPC Server Interceptorとして設定します。
 
 ```go
-	server := grpc.NewServer(
-		grpc.ChainUnaryInterceptor(
-			interceptor.TranslateUnaryServerInterceptor(interceptor.DefaultTranslator()),
-		),
-	)
+server := grpc.NewServer(
+    grpc.ChainUnaryInterceptor(
+        interceptor.TranslateUnaryServerInterceptor(interceptor.DefaultTranslator()),
+    ),
+)
 ```
 
 `interceptor.DefaultTranslator()` は 上記表に規定されたルールに従って翻訳を行います。必要に応じて、`interceptor.MapTranslator` を利用することで挙動をカスタマイズできます。
@@ -56,25 +56,24 @@ gRPCアプリケーション向けに、別のgRPCサービスが生成したエ
 都度の外部gRPCサービス起因のエラー対処は、以下のようになります。
 
 ```go
- resp, err := mayOccurGRPCError()
- if err != nil {
+resp, err := mayOccurGRPCError()
+if err != nil {
     return nil, err // デフォルトのエラー翻訳ポリシーを適用したい場合は、何もせず return する
- }
+}
 
- resp, err := mayOccurGRPCError()
- if err != nil {
+resp, err := mayOccurGRPCError()
+if err != nil {
     return nil, fmt.Errorf("xxx.yyy  failed: %w", err) // Wrapしても、デフォルトのエラー翻訳ポリシーが採用される
- }
+}
 
- resp, err := mayOccurGRPCError()
- if err != nil {
-    if codes.Code(err) == codes.NotFound {
-      return nil, grpcerror.Translate(err, grpcerror.NotFound("not found")) // NotFound に明示的にエラー翻訳することで、デフォルトのエラー翻訳ポリシの適用を回避する
+resp, err := mayOccurGRPCError()
+if err != nil {
+    if status.Code(err) == codes.NotFound {
+        return nil, grpcerror.Translate(err, grpcerror.NotFound("not found")) // NotFound に明示的にエラー翻訳することで、デフォルトのエラー翻訳ポリシの適用を回避する
     }
-	return nil, err
- }
+    return nil, err
+}
 ```
-
 
 # ヘルパ関数
 gRPCエラーを生成するためのヘルパ関数を提供します。 これにより、あなたのアプリケーションに存在するgRPCエラーを返却する場合のボイラープレート（or あなたのプロジェクトに存在するヘルパー）を削減することができます。
@@ -82,19 +81,19 @@ gRPCエラーを生成するためのヘルパ関数を提供します。 これ
 ## 単純な例
 
 ```go
- resp, err := mayOccurGRPCError()
- if err != nil {
+resp, err := mayOccurGRPCError()
+if err != nil {
     return nil, status.Error(codes.AlreadyExists, "already exists")
- }
+}
 ```
 
 ヘルパ関数を用いることで、上記のようなコードを、以下のように置き換えできます。
 
 ```go
- resp, err := mayOccurGRPCError()
- if err != nil {
+resp, err := mayOccurGRPCError()
+if err != nil {
     return nil, grpcerror.AlreadyExistsError("already exists")
- }
+}
 ```
 
 ## エラー詳細の例
